@@ -1,0 +1,69 @@
+RAG RETRIEVAL EVALUATION CORPUS
+
+RETRIEVERS
+
+A retriever is responsible for finding relevant information from a knowledge base before a language model generates an answer. The retriever receives a user query and searches indexed document chunks. Good retrieval is critical because a language model cannot generate a grounded answer if useful evidence is missing. Retrieval systems commonly return the top-k most relevant chunks.
+
+EMBEDDINGS
+
+Embeddings are numerical representations of text. An embedding model converts sentences, paragraphs, or document chunks into vectors containing many floating-point numbers. Text with similar meaning usually produces vectors that are close to each other in vector space. Semantic retrieval compares the query embedding with stored document embeddings to find information with related meaning.
+
+VECTOR DATABASES
+
+A vector database stores embeddings and performs similarity search efficiently. Qdrant is an example of a vector database. In a RAG system, document chunks can be stored together with their vectors and metadata. When a query arrives, its embedding is compared against stored vectors and the closest matching chunks are returned.
+
+BM25 RETRIEVAL
+
+BM25 is a keyword-based ranking algorithm. Unlike semantic retrieval, BM25 does not primarily compare meaning through embeddings. It evaluates terms appearing in the query and documents. Rare and informative terms can receive greater importance than very common terms. BM25 can perform particularly well when exact terminology, product codes, names, identifiers, or technical keywords matter.
+
+SEMANTIC RETRIEVAL
+
+Semantic retrieval searches by meaning rather than depending entirely on exact keyword matches. A user may ask about automobile repairs while a document uses the word car. An embedding model can recognize that the concepts are related even when the exact words differ. Semantic retrieval is useful for natural-language questions and paraphrased queries.
+
+HYBRID RETRIEVAL
+
+Hybrid retrieval combines multiple retrieval signals. A common approach combines semantic vector search with keyword-based retrieval such as BM25. This can provide the semantic understanding of embeddings while preserving strong exact-keyword matching. Reciprocal Rank Fusion can combine rankings without requiring the raw scores from different retrieval systems to have the same numerical scale.
+
+RECIPROCAL RANK FUSION
+
+Reciprocal Rank Fusion, often called RRF, combines ranked lists produced by different retrievers. Instead of directly adding incompatible scores, RRF rewards documents according to their position in each ranking. A chunk that ranks highly in both semantic retrieval and BM25 usually receives a strong final hybrid ranking.
+
+CHUNKING
+
+Chunking divides large documents into smaller pieces before embedding and retrieval. Chunk size can strongly affect RAG performance. Very large chunks may contain unnecessary information, while extremely small chunks can lose important context. Chunk overlap allows some words from the previous chunk to appear in the next chunk so information near boundaries is not completely separated.
+
+TOP-K RETRIEVAL
+
+Top-k controls how many retrieved chunks are returned for a query. A low value may miss useful evidence while a very high value can introduce irrelevant context. The best top-k depends on the corpus, query type, chunking strategy, retrieval method, and language model context window.
+
+RERANKING
+
+A reranker receives candidate chunks from an initial retriever and performs a more detailed relevance comparison. The first retrieval stage may return many possible candidates quickly. A reranker can then reorder those candidates and place the most relevant evidence near the top. Reranking can improve retrieval quality but also introduces additional latency and computation.
+
+RECALL AT K
+
+Recall at K measures whether relevant information appears inside the first K retrieved results. If a query has several known relevant chunks, recall measures how many of them were successfully retrieved. High recall is particularly important when missing relevant evidence could prevent the generation model from answering correctly.
+
+PRECISION AT K
+
+Precision at K measures how many of the first K retrieved chunks are actually relevant. A retriever that returns many irrelevant chunks may have poor precision even if it also finds the correct evidence. Precision helps evaluate how much noise is being sent into the generation stage.
+
+MEAN RECIPROCAL RANK
+
+Mean Reciprocal Rank, or MRR, rewards systems that place the first relevant result near the top. If the correct result appears at rank one, the reciprocal rank is one. If it appears at rank two, the reciprocal rank is one half. MRR is useful when finding one strong answer or supporting passage quickly is important.
+
+FAITHFULNESS
+
+Faithfulness evaluates whether a generated answer is supported by the retrieved context. A response may sound fluent and convincing while still containing unsupported information. RAG evaluation therefore needs to examine not only whether retrieval worked but also whether the language model stayed grounded in the evidence it received.
+
+HALLUCINATION
+
+A hallucination occurs when a language model produces unsupported or incorrect information. Retrieval can reduce hallucinations by providing external evidence, but retrieval alone does not guarantee factual answers. Poor retrieval, irrelevant context, or failure to follow the supplied evidence can still lead to hallucinated responses.
+
+LATENCY
+
+Latency measures how long the system takes to process a request. A RAG pipeline can include embedding generation, vector search, keyword search, reranking, prompt construction, and language model generation. Improving accuracy sometimes increases latency, so production systems often need to balance response quality and speed.
+
+RAG EVALUATION
+
+A RAG evaluation system should compare multiple configurations rather than assuming one setup is always best. Experiments can vary chunk size, overlap, embedding model, retrieval strategy, top-k, and reranking. Evaluation metrics allow developers to identify which configuration performs best for a particular corpus and query set.

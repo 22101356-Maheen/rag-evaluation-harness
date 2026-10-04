@@ -1,0 +1,70 @@
+[
+  {
+    "query": "What does a retriever do?",
+    "relevant_chunk_ids": [0]
+  },
+  {
+    "query": "What are embeddings used for?",
+    "relevant_chunk_ids": [0, 1]
+  },
+  {
+    "query": "What is a vector database?",
+    "relevant_chunk_ids": [1]
+  },
+  {
+    "query": "How does BM25 retrieval work?",
+    "relevant_chunk_ids": [1, 2]
+  },
+  {
+    "query": "What is semantic retrieval?",
+    "relevant_chunk_ids": [2]
+  },
+  {
+    "query": "How are semantic search and BM25 combined?",
+    "relevant_chunk_ids": [2, 3]
+  },
+  {
+    "query": "What does Reciprocal Rank Fusion do?",
+    "relevant_chunk_ids": [3]
+  },
+  {
+    "query": "Why does chunk size matter?",
+    "relevant_chunk_ids": [4]
+  },
+  {
+    "query": "What does top-k control?",
+    "relevant_chunk_ids": [4]
+  },
+  {
+    "query": "What does a reranker do?",
+    "relevant_chunk_ids": [5]
+  },
+  {
+    "query": "What is Recall at K?",
+    "relevant_chunk_ids": [5]
+  },
+  {
+    "query": "What is Precision at K?",
+    "relevant_chunk_ids": [5, 6]
+  },
+  {
+    "query": "What is Mean Reciprocal Rank?",
+    "relevant_chunk_ids": [6]
+  },
+  {
+    "query": "What is faithfulness in RAG?",
+    "relevant_chunk_ids": [6, 7]
+  },
+  {
+    "query": "What causes hallucinations?",
+    "relevant_chunk_ids": [7]
+  },
+  {
+    "query": "What is latency in a RAG pipeline?",
+    "relevant_chunk_ids": [7, 8]
+  },
+  {
+    "query": "What should a RAG evaluation system compare?",
+    "relevant_chunk_ids": [8]
+  }
+]

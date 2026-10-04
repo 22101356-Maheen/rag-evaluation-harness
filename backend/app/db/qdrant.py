@@ -3,7 +3,6 @@ from qdrant_client.models import Distance, PointStruct, VectorParams
 
 from backend.app.core.config import settings
 
-
 # -----------------------------
 # Qdrant Configuration
 # -----------------------------
@@ -77,6 +76,33 @@ def store_chunks(
         collection_name=COLLECTION_NAME,
         points=points,
     )
+
+
+# -----------------------------
+# Stored Chunk Retrieval
+# -----------------------------
+
+def get_all_chunks() -> list[str]:
+    """
+    Read all stored document chunks from Qdrant.
+    """
+
+    points, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        limit=1000,
+        with_payload=True,
+        with_vectors=False,
+    )
+
+    sorted_points = sorted(
+        points,
+        key=lambda point: point.payload.get("chunk_index", 0),
+    )
+
+    return [
+        point.payload.get("text", "")
+        for point in sorted_points
+    ]
 
 
 # -----------------------------
