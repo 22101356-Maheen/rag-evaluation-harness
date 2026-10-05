@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from backend.app.db.qdrant import get_all_chunks, search_chunks
@@ -12,7 +13,6 @@ from backend.app.rag.evaluation.metrics import (
 )
 from backend.app.rag.retrieval.bm25 import retrieve_bm25
 from backend.app.rag.retrieval.hybrid import reciprocal_rank_fusion
-
 
 # -----------------------------
 # Evaluation Configuration
@@ -35,7 +35,7 @@ STRATEGIES = (
 
 def load_evaluation_queries() -> list[dict]:
     """
-    Load evaluation questions and their known relevant chunk IDs.
+    Load evaluation questions and expected evidence.
     """
 
     with EVALUATION_DATASET_PATH.open(
@@ -43,6 +43,82 @@ def load_evaluation_queries() -> list[dict]:
         encoding="utf-8",
     ) as file:
         return json.load(file)
+
+
+# -----------------------------
+# Text Normalization
+# -----------------------------
+
+def normalize_text(text: str) -> str:
+    """
+    Normalize text before matching evidence against chunks.
+    """
+
+    tokens = re.findall(
+        r"\b[a-zA-Z0-9]+\b",
+        text.lower(),
+    )
+
+    return " ".join(tokens)
+
+
+# -----------------------------
+# Ground Truth Resolution
+# -----------------------------
+
+def resolve_relevant_chunk_ids(
+    chunks: list[str],
+    expected_evidence: list[str],
+) -> set[int]:
+    """
+    Find which current chunks contain the expected evidence.
+
+    Chunk IDs are resolved again for every experiment so
+    ground truth remains valid when chunk size changes.
+    """
+
+    normalized_chunks = [
+        normalize_text(chunk)
+        for chunk in chunks
+    ]
+
+    relevant_ids: set[int] = set()
+
+    for evidence in expected_evidence:
+        normalized_evidence = normalize_text(evidence)
+
+        exact_matches = [
+            index
+            for index, chunk in enumerate(normalized_chunks)
+            if normalized_evidence in chunk
+        ]
+
+        if exact_matches:
+            relevant_ids.update(exact_matches)
+            continue
+
+        evidence_tokens = set(
+            normalized_evidence.split()
+        )
+
+        best_chunk_index = None
+        best_overlap = 0.0
+
+        for index, chunk in enumerate(normalized_chunks):
+            chunk_tokens = set(chunk.split())
+
+            overlap = len(
+                evidence_tokens & chunk_tokens
+            ) / len(evidence_tokens)
+
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_chunk_index = index
+
+        if best_chunk_index is not None and best_overlap >= 0.6:
+            relevant_ids.add(best_chunk_index)
+
+    return relevant_ids
 
 
 # -----------------------------
@@ -124,9 +200,16 @@ def evaluate_retrieval(
         for item in evaluation_queries:
             query = item["query"]
 
-            relevant_ids = set(
-                item["relevant_chunk_ids"]
+            relevant_ids = resolve_relevant_chunk_ids(
+                chunks=chunks,
+                expected_evidence=item["expected_evidence"],
             )
+
+            if not relevant_ids:
+                raise ValueError(
+                    f"No relevant chunks could be resolved "
+                    f"for evaluation query: {query}"
+                )
 
             results = run_strategy(
                 strategy=strategy,

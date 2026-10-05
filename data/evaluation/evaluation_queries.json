@@ -1,70 +1,107 @@
 [
   {
     "query": "What does a retriever do?",
-    "relevant_chunk_ids": [0]
+    "expected_evidence": [
+      "A retriever is responsible for finding relevant information from a knowledge base before a language model generates an answer."
+    ]
   },
   {
     "query": "What are embeddings used for?",
-    "relevant_chunk_ids": [0, 1]
+    "expected_evidence": [
+      "Embeddings are numerical representations of text.",
+      "An embedding model converts sentences, paragraphs, or document chunks into vectors containing many floating-point numbers."
+    ]
   },
   {
     "query": "What is a vector database?",
-    "relevant_chunk_ids": [1]
+    "expected_evidence": [
+      "A vector database stores embeddings and performs similarity search efficiently."
+    ]
   },
   {
     "query": "How does BM25 retrieval work?",
-    "relevant_chunk_ids": [1, 2]
+    "expected_evidence": [
+      "BM25 is a keyword-based ranking algorithm.",
+      "It evaluates terms appearing in the query and documents."
+    ]
   },
   {
     "query": "What is semantic retrieval?",
-    "relevant_chunk_ids": [2]
+    "expected_evidence": [
+      "Semantic retrieval searches by meaning rather than depending entirely on exact keyword matches."
+    ]
   },
   {
     "query": "How are semantic search and BM25 combined?",
-    "relevant_chunk_ids": [2, 3]
+    "expected_evidence": [
+      "Hybrid retrieval combines multiple retrieval signals.",
+      "A common approach combines semantic vector search with keyword-based retrieval such as BM25."
+    ]
   },
   {
     "query": "What does Reciprocal Rank Fusion do?",
-    "relevant_chunk_ids": [3]
+    "expected_evidence": [
+      "Reciprocal Rank Fusion, often called RRF, combines ranked lists produced by different retrievers."
+    ]
   },
   {
     "query": "Why does chunk size matter?",
-    "relevant_chunk_ids": [4]
+    "expected_evidence": [
+      "Chunk size can strongly affect RAG performance."
+    ]
   },
   {
     "query": "What does top-k control?",
-    "relevant_chunk_ids": [4]
+    "expected_evidence": [
+      "Top-k controls how many retrieved chunks are returned for a query."
+    ]
   },
   {
     "query": "What does a reranker do?",
-    "relevant_chunk_ids": [5]
+    "expected_evidence": [
+      "A reranker receives candidate chunks from an initial retriever and performs a more detailed relevance comparison."
+    ]
   },
   {
     "query": "What is Recall at K?",
-    "relevant_chunk_ids": [5]
+    "expected_evidence": [
+      "Recall at K measures whether relevant information appears inside the first K retrieved results."
+    ]
   },
   {
     "query": "What is Precision at K?",
-    "relevant_chunk_ids": [5, 6]
+    "expected_evidence": [
+      "Precision at K measures how many of the first K retrieved chunks are actually relevant."
+    ]
   },
   {
     "query": "What is Mean Reciprocal Rank?",
-    "relevant_chunk_ids": [6]
+    "expected_evidence": [
+      "Mean Reciprocal Rank, or MRR, rewards systems that place the first relevant result near the top."
+    ]
   },
   {
     "query": "What is faithfulness in RAG?",
-    "relevant_chunk_ids": [6, 7]
+    "expected_evidence": [
+      "Faithfulness evaluates whether a generated answer is supported by the retrieved context."
+    ]
   },
   {
     "query": "What causes hallucinations?",
-    "relevant_chunk_ids": [7]
+    "expected_evidence": [
+      "A hallucination occurs when a language model produces unsupported or incorrect information."
+    ]
   },
   {
     "query": "What is latency in a RAG pipeline?",
-    "relevant_chunk_ids": [7, 8]
+    "expected_evidence": [
+      "Latency measures how long the system takes to process a request."
+    ]
   },
   {
     "query": "What should a RAG evaluation system compare?",
-    "relevant_chunk_ids": [8]
+    "expected_evidence": [
+      "A RAG evaluation system should compare multiple configurations rather than assuming one setup is always best."
+    ]
   }
 ]
