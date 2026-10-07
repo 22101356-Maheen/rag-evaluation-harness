@@ -1,24 +1,47 @@
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    UploadFile,
+)
+from sqlalchemy.orm import Session
 
-from backend.app.db.qdrant import store_chunks
+from backend.app.db.postgres import get_db
+from backend.app.db.qdrant import (
+    store_chunks,
+    store_project_document_chunks,
+)
 from backend.app.rag.chunking.text_chunker import chunk_text
 from backend.app.rag.embeddings.embedder import embed_texts
 from backend.app.rag.ingestion.text_loader import load_text_file
+from backend.app.schemas.document import DocumentResponse
+from backend.app.services.document_service import (
+    create_document,
+    get_document_by_filename,
+    get_project_documents,
+    update_document_status,
+)
+from backend.app.services.project_service import get_project_by_id
+
 
 router = APIRouter()
 
 
 # -----------------------------
-# Document Upload
+# Legacy Test Upload
 # -----------------------------
 
 @router.post("/documents/upload")
-async def upload_document(file: UploadFile):
+async def upload_document(
+    file: UploadFile,
+):
     """
-    Process an uploaded text document and store its vectors in Qdrant.
+    Process a text document using the original test flow.
     """
 
-    if not file.filename or not file.filename.endswith(".txt"):
+    if not file.filename or not file.filename.endswith(
+        ".txt"
+    ):
         raise HTTPException(
             status_code=400,
             detail="For now, only .txt files are supported",
@@ -35,6 +58,7 @@ async def upload_document(file: UploadFile):
 
     embeddings = embed_texts(chunks)
 
+    # this old endpoint still uses the experiment collection.
     store_chunks(
         chunks=chunks,
         embeddings=embeddings,
@@ -45,6 +69,140 @@ async def upload_document(file: UploadFile):
         "characters": len(text),
         "chunk_count": len(chunks),
         "embedding_count": len(embeddings),
-        "embedding_dimensions": len(embeddings[0]) if embeddings else 0,
+        "embedding_dimensions": (
+            len(embeddings[0])
+            if embeddings
+            else 0
+        ),
         "storage": "qdrant",
     }
+
+
+# -----------------------------
+# Project Document Upload
+# -----------------------------
+
+@router.post(
+    "/projects/{project_id}/documents/upload",
+    response_model=DocumentResponse,
+)
+async def upload_project_document(
+    project_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+):
+    """
+    Upload and process a document for a specific project.
+    """
+
+    # this makes sure the requested project exists.
+    project = get_project_by_id(
+        db=db,
+        project_id=project_id,
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    if not file.filename or not file.filename.endswith(
+        ".txt"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="For now, only .txt files are supported",
+        )
+
+    # this prevents the same filename from being uploaded twice.
+    existing_document = get_document_by_filename(
+        db=db,
+        project_id=project_id,
+        filename=file.filename,
+    )
+
+    if existing_document is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Document already exists in this project",
+        )
+
+    # this creates the PostgreSQL document record first.
+    document = create_document(
+        db=db,
+        project_id=project_id,
+        filename=file.filename,
+    )
+
+    try:
+        content = await file.read()
+        text = load_text_file(content)
+
+        chunks = chunk_text(
+            text=text,
+            chunk_size=120,
+            overlap=20,
+        )
+
+        embeddings = embed_texts(chunks)
+
+        # this stores the chunks without deleting older project documents.
+        store_project_document_chunks(
+            project_id=project_id,
+            document_id=document.id,
+            chunks=chunks,
+            embeddings=embeddings,
+        )
+
+        update_document_status(
+            db=db,
+            document=document,
+            status="ready",
+        )
+
+    except Exception:
+        update_document_status(
+            db=db,
+            document=document,
+            status="failed",
+        )
+
+        raise
+
+    return document
+
+
+# -----------------------------
+# Project Document Listing
+# -----------------------------
+
+@router.get(
+    "/projects/{project_id}/documents",
+    response_model=list[DocumentResponse],
+)
+def list_project_documents(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Return all documents uploaded to one project.
+    """
+
+    # this makes sure the requested project exists.
+    project = get_project_by_id(
+        db=db,
+        project_id=project_id,
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    # this reads only the documents that belong to this project.
+    return get_project_documents(
+        db=db,
+        project_id=project_id,
+    )
