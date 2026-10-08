@@ -1,16 +1,19 @@
+from collections.abc import Hashable
+
+
 # -----------------------------
 # Retrieval Evaluation Helpers
 # -----------------------------
 
 def get_retrieved_chunk_ids(
     results: list[dict],
-) -> list[int]:
+) -> list[Hashable]:
     """
     Extract chunk indexes from retriever results.
     """
 
     return [
-        result["chunk_index"]
+        result.get("chunk_id", result["chunk_index"])
         for result in results
     ]
 
@@ -20,8 +23,8 @@ def get_retrieved_chunk_ids(
 # -----------------------------
 
 def hit_at_k(
-    retrieved_ids: list[int],
-    relevant_ids: set[int],
+    retrieved_ids: list[Hashable],
+    relevant_ids: set[Hashable],
     k: int,
 ) -> float:
     """
@@ -44,8 +47,8 @@ def hit_at_k(
 # -----------------------------
 
 def precision_at_k(
-    retrieved_ids: list[int],
-    relevant_ids: set[int],
+    retrieved_ids: list[Hashable],
+    relevant_ids: set[Hashable],
     k: int,
 ) -> float:
     """
@@ -70,8 +73,8 @@ def precision_at_k(
 # -----------------------------
 
 def recall_at_k(
-    retrieved_ids: list[int],
-    relevant_ids: set[int],
+    retrieved_ids: list[Hashable],
+    relevant_ids: set[Hashable],
     k: int,
 ) -> float:
     """
@@ -97,8 +100,8 @@ def recall_at_k(
 # -----------------------------
 
 def reciprocal_rank(
-    retrieved_ids: list[int],
-    relevant_ids: set[int],
+    retrieved_ids: list[Hashable],
+    relevant_ids: set[Hashable],
 ) -> float:
     """
     Score how early the first relevant chunk appears.

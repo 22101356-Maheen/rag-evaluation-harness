@@ -1,3 +1,6 @@
+from collections.abc import Hashable
+
+
 # -----------------------------
 # Reciprocal Rank Fusion
 # -----------------------------
@@ -12,7 +15,7 @@ def reciprocal_rank_fusion(
     Combine semantic and BM25 rankings using Reciprocal Rank Fusion.
     """
 
-    fused_results: dict[int, dict] = {}
+    fused_results: dict[Hashable, dict] = {}
 
     ranked_sources = [
         ("semantic", semantic_results),
@@ -21,21 +24,32 @@ def reciprocal_rank_fusion(
 
     for source_name, results in ranked_sources:
         for rank, result in enumerate(results, start=1):
-            chunk_index = result["chunk_index"]
+            chunk_id = result.get(
+                "chunk_id",
+                result["chunk_index"],
+            )
 
-            if chunk_index not in fused_results:
-                fused_results[chunk_index] = {
-                    "chunk_index": chunk_index,
+            if chunk_id not in fused_results:
+                fused_result = {
+                    "chunk_index": result["chunk_index"],
                     "text": result["text"],
                     "hybrid_score": 0.0,
                     "matched_by": [],
                 }
 
-            fused_results[chunk_index]["hybrid_score"] += (
+                if "chunk_id" in result:
+                    fused_result["chunk_id"] = result["chunk_id"]
+
+                if "document_id" in result:
+                    fused_result["document_id"] = result["document_id"]
+
+                fused_results[chunk_id] = fused_result
+
+            fused_results[chunk_id]["hybrid_score"] += (
                 1 / (rank_constant + rank)
             )
 
-            fused_results[chunk_index]["matched_by"].append(
+            fused_results[chunk_id]["matched_by"].append(
                 source_name
             )
 

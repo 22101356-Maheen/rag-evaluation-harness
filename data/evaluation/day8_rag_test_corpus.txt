@@ -1,0 +1,33 @@
+RAG RETRIEVAL TEST CORPUS
+
+RETRIEVER
+A retriever searches the document collection and returns the most relevant chunks for a user's query.
+The retriever does not generate the final answer. Its job is to find useful evidence from the stored documents.
+Good retrieval is important because the generation model can only answer well when the correct context is provided.
+
+SEMANTIC SEARCH
+Semantic search compares the meaning of the user's query with the meaning of document chunks.
+It can find relevant text even when the exact same keywords are not used.
+
+BM25
+BM25 is a keyword-based retrieval method.
+It gives higher scores to chunks that contain important query terms.
+
+HYBRID RETRIEVAL
+Hybrid retrieval combines semantic search and keyword-based retrieval.
+It can improve retrieval quality by using both meaning and exact keyword matches.
+
+RERANKING
+A reranker takes retrieved candidates and reorders them so that the most relevant evidence appears near the top.
+
+RECALL AT K
+Recall at K measures how much of the known relevant evidence appears within the first K retrieved results.
+
+PRECISION AT K
+Precision at K measures how many of the first K retrieved chunks are actually relevant.
+
+MRR
+Mean Reciprocal Rank rewards systems that place the first relevant result near the top of the ranking.
+
+FAITHFULNESS
+Faithfulness checks whether a generated answer is supported by the retrieved context.

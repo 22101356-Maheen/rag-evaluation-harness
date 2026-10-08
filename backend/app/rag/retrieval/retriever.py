@@ -1,5 +1,7 @@
-from backend.app.rag.retrieval.similarity import cosine_similarity
+from collections.abc import Hashable
+
 from backend.app.rag.embeddings.embedder import embed_query
+from backend.app.rag.retrieval.similarity import cosine_similarity
 
 
 # -----------------------------
@@ -11,6 +13,8 @@ def retrieve_top_k(
     chunks: list[str],
     chunk_embeddings: list[list[float]],
     top_k: int = 3,
+    chunk_ids: list[Hashable] | None = None,
+    chunk_metadata: list[dict] | None = None,
 ) -> list[dict]:
     """
     Return the most relevant chunks for a user query.
@@ -20,6 +24,12 @@ def retrieve_top_k(
         raise ValueError(
             "Each chunk must have a corresponding embedding."
         )
+
+    if chunk_ids is not None and len(chunks) != len(chunk_ids):
+        raise ValueError("Each chunk must have a corresponding chunk ID.")
+
+    if chunk_metadata is not None and len(chunks) != len(chunk_metadata):
+        raise ValueError("Each chunk must have corresponding metadata.")
 
     if top_k <= 0:
         raise ValueError("top_k must be greater than 0.")
@@ -38,13 +48,19 @@ def retrieve_top_k(
             chunk_embedding,
         )
 
-        scored_chunks.append(
-            {
-                "chunk_index": index,
-                "text": chunk,
-                "score": round(score, 4),
-            }
-        )
+        result = {
+            "chunk_index": index,
+            "text": chunk,
+            "score": round(score, 4),
+        }
+
+        if chunk_ids is not None:
+            result["chunk_id"] = chunk_ids[index]
+
+        if chunk_metadata is not None:
+            result.update(chunk_metadata[index])
+
+        scored_chunks.append(result)
 
     # Highest similarity scores should appear first.
     scored_chunks.sort(

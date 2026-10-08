@@ -1,4 +1,5 @@
 import re
+from collections.abc import Hashable
 
 from rank_bm25 import BM25Okapi
 
@@ -67,6 +68,8 @@ def retrieve_bm25(
     query: str,
     chunks: list[str],
     top_k: int = 3,
+    chunk_ids: list[Hashable] | None = None,
+    chunk_metadata: list[dict] | None = None,
 ) -> list[dict]:
     """
     Rank document chunks using BM25 keyword relevance.
@@ -78,6 +81,12 @@ def retrieve_bm25(
     if not chunks:
         return []
 
+    if chunk_ids is not None and len(chunks) != len(chunk_ids):
+        raise ValueError("Each chunk must have a corresponding chunk ID.")
+
+    if chunk_metadata is not None and len(chunks) != len(chunk_metadata):
+        raise ValueError("Each chunk must have corresponding metadata.")
+
     tokenized_chunks = [
         tokenize_text(chunk)
         for chunk in chunks
@@ -88,14 +97,22 @@ def retrieve_bm25(
     tokenized_query = tokenize_text(query)
     scores = bm25.get_scores(tokenized_query)
 
-    results = [
-        {
+    results = []
+
+    for index, chunk in enumerate(chunks):
+        result = {
             "chunk_index": index,
             "text": chunk,
             "score": round(float(scores[index]), 4),
         }
-        for index, chunk in enumerate(chunks)
-    ]
+
+        if chunk_ids is not None:
+            result["chunk_id"] = chunk_ids[index]
+
+        if chunk_metadata is not None:
+            result.update(chunk_metadata[index])
+
+        results.append(result)
 
     results.sort(
         key=lambda item: item["score"],

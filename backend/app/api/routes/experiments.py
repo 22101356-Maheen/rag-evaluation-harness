@@ -6,11 +6,15 @@ from backend.app.db.postgres import get_db
 from backend.app.schemas.experiment import (
     ExperimentBatchRequest,
     ExperimentConfig,
+    ProjectExperimentBatchRequest,
 )
+from backend.app.services.evaluation_service import EvaluationDatasetError
 from backend.app.services.experiment_run_service import save_experiment_run
 from backend.app.services.experiment_service import (
+    ProjectCorpusEmptyError,
     run_experiment,
     run_experiment_batch,
+    run_project_experiment_batch,
 )
 from backend.app.services.project_service import get_owned_project_by_id
 
@@ -61,7 +65,7 @@ def compare_multiple_experiments(
 )
 def compare_project_experiments(
     project_id: int,
-    request: ExperimentBatchRequest,
+    request: ProjectExperimentBatchRequest,
     db: Session = Depends(get_db),
     owner_id: str = Depends(get_current_user_id),
 ):
@@ -82,9 +86,22 @@ def compare_project_experiments(
             detail="Project not found",
         )
 
-    comparison = run_experiment_batch(
-        configs=request.experiments,
-    )
+    try:
+        comparison = run_project_experiment_batch(
+            project_id=project_id,
+            configs=request.experiments,
+            evaluation_queries=request.evaluation_queries,
+        )
+    except ProjectCorpusEmptyError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+    except EvaluationDatasetError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
 
     best_experiment = comparison["best_experiment"]
 
@@ -98,6 +115,10 @@ def compare_project_experiments(
         "project_id": project_id,
         "project_name": project.name,
         "experiment_run_id": experiment_run.id,
+        "experiment_count": comparison["experiment_count"],
+        "evaluation_query_count": comparison[
+            "evaluation_query_count"
+        ],
         "best_experiment": best_experiment,
         "ranking": comparison["ranking"],
     }

@@ -27,6 +27,7 @@ VECTOR_SIZE = 384
 
 client = QdrantClient(
     url=settings.qdrant_url,
+    check_compatibility=False,
 )
 
 
@@ -254,6 +255,10 @@ def search_project_chunks(
 
     return [
         {
+            "chunk_id": (
+                f"{point.payload.get('document_id')}:"
+                f"{point.payload.get('chunk_index')}"
+            ),
             "document_id": point.payload.get(
                 "document_id"
             ),
@@ -265,3 +270,64 @@ def search_project_chunks(
         }
         for point in response.points
     ]
+
+
+# -----------------------------
+# Project Corpus Retrieval
+# -----------------------------
+
+def get_project_chunks(
+    project_id: int,
+) -> list[dict]:
+    """
+    Read every stored chunk for one project without changing the collection.
+    """
+
+    ensure_project_collection()
+
+    project_filter = Filter(
+        must=[
+            FieldCondition(
+                key="project_id",
+                match=MatchValue(value=project_id),
+            )
+        ]
+    )
+
+    project_points = []
+    next_offset = None
+
+    while True:
+        points, next_offset = client.scroll(
+            collection_name=PROJECT_COLLECTION_NAME,
+            scroll_filter=project_filter,
+            limit=256,
+            offset=next_offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+        project_points.extend(points)
+
+        if next_offset is None:
+            break
+
+    chunks = [
+        {
+            "chunk_id": (
+                f"{point.payload.get('document_id')}:"
+                f"{point.payload.get('chunk_index')}"
+            ),
+            "document_id": point.payload.get("document_id"),
+            "chunk_index": point.payload.get("chunk_index"),
+            "text": point.payload.get("text", ""),
+        }
+        for point in project_points
+    ]
+
+    return sorted(
+        chunks,
+        key=lambda chunk: (
+            chunk["document_id"],
+            chunk["chunk_index"],
+        ),
+    )
