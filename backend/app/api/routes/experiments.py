@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from backend.app.core.auth import get_current_user_id
 from backend.app.db.postgres import get_db
 from backend.app.schemas.experiment import (
     ExperimentBatchRequest,
@@ -11,37 +12,39 @@ from backend.app.services.experiment_service import (
     run_experiment,
     run_experiment_batch,
 )
-from backend.app.services.project_service import get_project_by_id
+from backend.app.services.project_service import get_owned_project_by_id
 
 
 router = APIRouter()
 
 
 # -----------------------------
-# Single Experiment
+# Run One Experiment
 # -----------------------------
 
 @router.post("/experiments/run")
-def run_rag_experiment(
-    config: ExperimentConfig,
+def run_single_experiment(
+    experiment: ExperimentConfig,
 ):
     """
-    Run one RAG retrieval configuration.
+    Run one controlled RAG experiment.
     """
 
-    return run_experiment(config)
+    return run_experiment(
+        config=experiment,
+    )
 
 
 # -----------------------------
-# Batch Experiment Comparison
+# Compare Experiments
 # -----------------------------
 
 @router.post("/experiments/compare")
-def compare_rag_experiments(
+def compare_multiple_experiments(
     request: ExperimentBatchRequest,
 ):
     """
-    Run multiple RAG configurations and rank them.
+    Compare multiple controlled RAG configurations.
     """
 
     return run_experiment_batch(
@@ -60,15 +63,17 @@ def compare_project_experiments(
     project_id: int,
     request: ExperimentBatchRequest,
     db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
 ):
     """
-    Compare configurations for a project and save the winner.
+    Run experiments only for a project owned by the current user.
     """
 
-    # this checks that the requested project actually exists.
-    project = get_project_by_id(
+    # make sure this project belongs to the current user.
+    project = get_owned_project_by_id(
         db=db,
         project_id=project_id,
+        owner_id=owner_id,
     )
 
     if project is None:
@@ -77,15 +82,13 @@ def compare_project_experiments(
             detail="Project not found",
         )
 
-    # this runs the RAG comparison and finds the best configuration.
     comparison = run_experiment_batch(
         configs=request.experiments,
     )
 
     best_experiment = comparison["best_experiment"]
 
-    # this connects the winning result to the project in PostgreSQL.
-    saved_run = save_experiment_run(
+    experiment_run = save_experiment_run(
         db=db,
         project_id=project_id,
         best_experiment=best_experiment,
@@ -94,7 +97,7 @@ def compare_project_experiments(
     return {
         "project_id": project_id,
         "project_name": project.name,
-        "experiment_run_id": saved_run.id,
+        "experiment_run_id": experiment_run.id,
         "best_experiment": best_experiment,
         "ranking": comparison["ranking"],
     }

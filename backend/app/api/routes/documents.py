@@ -6,6 +6,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from backend.app.core.auth import get_current_user_id
 from backend.app.db.postgres import get_db
 from backend.app.db.qdrant import (
     store_chunks,
@@ -21,8 +22,7 @@ from backend.app.services.document_service import (
     get_project_documents,
     update_document_status,
 )
-from backend.app.services.project_service import get_project_by_id
-
+from backend.app.services.project_service import get_owned_project_by_id
 
 router = APIRouter()
 
@@ -58,7 +58,6 @@ async def upload_document(
 
     embeddings = embed_texts(chunks)
 
-    # this old endpoint still uses the experiment collection.
     store_chunks(
         chunks=chunks,
         embeddings=embeddings,
@@ -89,16 +88,18 @@ async def upload_document(
 async def upload_project_document(
     project_id: int,
     file: UploadFile,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db),  # noqa: B008
+    owner_id: str = Depends(get_current_user_id),
 ):
     """
-    Upload and process a document for a specific project.
+    Upload a document only to a project owned by the current user.
     """
 
-    # this makes sure the requested project exists.
-    project = get_project_by_id(
+    # this checks project ownership.
+    project = get_owned_project_by_id(
         db=db,
         project_id=project_id,
+        owner_id=owner_id,
     )
 
     if project is None:
@@ -115,7 +116,6 @@ async def upload_project_document(
             detail="For now, only .txt files are supported",
         )
 
-    # this prevents the same filename from being uploaded twice.
     existing_document = get_document_by_filename(
         db=db,
         project_id=project_id,
@@ -128,7 +128,6 @@ async def upload_project_document(
             detail="Document already exists in this project",
         )
 
-    # this creates the PostgreSQL document record first.
     document = create_document(
         db=db,
         project_id=project_id,
@@ -147,7 +146,6 @@ async def upload_project_document(
 
         embeddings = embed_texts(chunks)
 
-        # this stores the chunks without deleting older project documents.
         store_project_document_chunks(
             project_id=project_id,
             document_id=document.id,
@@ -183,16 +181,18 @@ async def upload_project_document(
 )
 def list_project_documents(
     project_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db),  # noqa: B008
+    owner_id: str = Depends(get_current_user_id),
 ):
     """
-    Return all documents uploaded to one project.
+    Return documents only from a project owned by the current user.
     """
 
-    # this makes sure the requested project exists.
-    project = get_project_by_id(
+    # this checks project ownership first.
+    project = get_owned_project_by_id(
         db=db,
         project_id=project_id,
+        owner_id=owner_id,
     )
 
     if project is None:
@@ -201,7 +201,6 @@ def list_project_documents(
             detail="Project not found",
         )
 
-    # this reads only the documents that belong to this project.
     return get_project_documents(
         db=db,
         project_id=project_id,

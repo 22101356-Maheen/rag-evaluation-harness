@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from backend.app.core.auth import get_current_user_id
 from backend.app.db.postgres import get_db
 from backend.app.schemas.project import (
     ProjectCreate,
@@ -8,15 +9,16 @@ from backend.app.schemas.project import (
 )
 from backend.app.services.project_service import (
     create_project,
-    get_project_by_id,
+    get_owned_project_by_id,
     get_projects,
 )
+
 
 router = APIRouter()
 
 
 # -----------------------------
-# Project Creation
+# Create Project
 # -----------------------------
 
 @router.post(
@@ -25,21 +27,22 @@ router = APIRouter()
 )
 def create_new_project(
     project_data: ProjectCreate,
-    db: Session = Depends(get_db),  # noqa: B008
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
 ):
     """
-    Create a new project and save it in PostgreSQL.
+    Create a project for the current user.
     """
 
-    # this sends the validated request to the project service.
     return create_project(
         db=db,
         project_data=project_data,
+        owner_id=owner_id,
     )
 
 
 # -----------------------------
-# Project Listing
+# List Projects
 # -----------------------------
 
 @router.get(
@@ -47,20 +50,21 @@ def create_new_project(
     response_model=list[ProjectResponse],
 )
 def list_projects(
-    db: Session = Depends(get_db),  # noqa: B008
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
 ):
     """
-    Return all saved projects.
+    Return only projects owned by the current user.
     """
 
-    # this asks the service to read all projects from PostgreSQL.
     return get_projects(
         db=db,
+        owner_id=owner_id,
     )
 
 
 # -----------------------------
-# Single Project
+# Get One Project
 # -----------------------------
 
 @router.get(
@@ -69,19 +73,19 @@ def list_projects(
 )
 def get_project(
     project_id: int,
-    db: Session = Depends(get_db),  # noqa: B008
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
 ):
     """
-    Return one saved project.
+    Return one project only if it belongs to the current user.
     """
 
-    # this asks the service to find the project using its ID.
-    project = get_project_by_id(
+    project = get_owned_project_by_id(
         db=db,
         project_id=project_id,
+        owner_id=owner_id,
     )
 
-    # this returns a clear API error if the project does not exist.
     if project is None:
         raise HTTPException(
             status_code=404,

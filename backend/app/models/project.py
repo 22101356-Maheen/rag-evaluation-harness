@@ -5,38 +5,36 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.db.postgres import Base
 
-# this file is for blueprinting the project model for the database. It defines the structure of the "projects" table in the PostgreSQL database, including columns for id, name, status, and created_at. The model uses SQLAlchemy's ORM features to map Python classes to database tables, allowing for easy interaction with the database through Python code.
-
-# -----------------------------
-# Project Database Model
-# -----------------------------
 
 class Project(Base):
     __tablename__ = "projects"
 
-    # This is the unique ID for every project.
-    # PostgreSQL automatically gives each new project a new number.
+    # unique ID for every project.
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
     )
 
-    # This stores the project name entered by the user.
+    # Clerk user ID of the project owner.
+    owner_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    # project name entered by the user.
     name: Mapped[str] = mapped_column(
         String(200),
         nullable=False,
     )
 
-    # This stores the current state of the project.
-    # For now every new project starts as "created".
+    # current state of the project.
     status: Mapped[str] = mapped_column(
         String(50),
         default="created",
         nullable=False,
     )
 
-    # This stores when the project was created.
-    # PostgreSQL automatically sets the current time.
+    # time when the project was created.
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from backend.app.core.auth import get_current_user_id
 from backend.app.db.postgres import get_db
 from backend.app.db.qdrant import (
     COLLECTION_NAME,
@@ -14,8 +15,7 @@ from backend.app.rag.retrieval.bm25 import retrieve_bm25
 from backend.app.rag.retrieval.hybrid import reciprocal_rank_fusion
 from backend.app.schemas.project_search import ProjectSearchRequest
 from backend.app.schemas.search import SearchRequest
-from backend.app.services.project_service import get_project_by_id
-
+from backend.app.services.project_service import get_owned_project_by_id
 
 router = APIRouter()
 
@@ -25,7 +25,9 @@ router = APIRouter()
 # -----------------------------
 
 @router.post("/search")
-def search_document(request: SearchRequest):
+def search_document(
+    request: SearchRequest,
+):
     """
     Search controlled experiment chunks.
     """
@@ -51,7 +53,9 @@ def search_document(request: SearchRequest):
             request.top_k,
         )
 
-        query_embedding = embed_query(request.query)
+        query_embedding = embed_query(
+            request.query
+        )
 
         semantic_results = search_chunks(
             query_embedding=query_embedding,
@@ -71,7 +75,9 @@ def search_document(request: SearchRequest):
         )
 
     else:
-        query_embedding = embed_query(request.query)
+        query_embedding = embed_query(
+            request.query
+        )
 
         results = search_chunks(
             query_embedding=query_embedding,
@@ -93,16 +99,18 @@ def search_document(request: SearchRequest):
 def search_project(
     project_id: int,
     request: ProjectSearchRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db),  # noqa: B008
+    owner_id: str = Depends(get_current_user_id),
 ):
     """
-    Search only the uploaded chunks that belong to one project.
+    Search only inside a project owned by the current user.
     """
 
-    # this makes sure the requested project exists.
-    project = get_project_by_id(
+    # this checks project ownership before Qdrant search.
+    project = get_owned_project_by_id(
         db=db,
         project_id=project_id,
+        owner_id=owner_id,
     )
 
     if project is None:
@@ -111,12 +119,10 @@ def search_project(
             detail="Project not found",
         )
 
-    # this converts the user's question into a vector.
     query_embedding = embed_query(
         request.query
     )
 
-    # this searches only the current project's chunks in Qdrant.
     results = search_project_chunks(
         project_id=project_id,
         query_embedding=query_embedding,
