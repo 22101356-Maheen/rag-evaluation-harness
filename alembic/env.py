@@ -6,6 +6,8 @@ from alembic import context
 from backend.app.core.config import settings
 from backend.app.db.postgres import Base
 from backend.app.models.document import Document  # noqa: F401
+from backend.app.models.evaluation_case import EvaluationCase  # noqa: F401
+from backend.app.models.evaluation_dataset import EvaluationDataset  # noqa: F401
 from backend.app.models.experiment_run import ExperimentRun  # noqa: F401
 from backend.app.models.project import Project  # noqa: F401
 

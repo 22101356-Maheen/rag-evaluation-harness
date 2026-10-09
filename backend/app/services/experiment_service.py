@@ -1,16 +1,31 @@
+import re
 from collections import defaultdict
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
+from backend.app.core.config import settings
 from backend.app.db.qdrant import get_project_chunks, store_chunks
+from backend.app.llm.openai_provider import OpenAIProvider
 from backend.app.rag.chunking.text_chunker import chunk_text
 from backend.app.rag.embeddings.embedder import embed_texts
+from backend.app.schemas.evaluation import EvaluationRunRequest
 from backend.app.schemas.experiment import (
     ExperimentConfig,
     ProjectEvaluationQuery,
 )
+from backend.app.services.answer_evaluation_service import evaluate_answer
+from backend.app.services.document_service import get_project_documents
 from backend.app.services.evaluation_service import (
+    EvaluationDatasetError,
     evaluate_project_retrieval,
     evaluate_retrieval,
+)
+from backend.app.services.experiment_run_service import save_experiment_run
+from backend.app.services.synthetic_dataset_service import (
+    get_or_create_dataset,
+    normalized,
+    quote_spans,
 )
 
 CORPUS_PATH = Path(
@@ -301,3 +316,124 @@ def run_project_experiment_batch(
     comparison = _rank_experiments(summaries)
     comparison["evaluation_query_count"] = len(query_data)
     return comparison
+
+
+def _snapshot_documents(chunks: list[dict]) -> list[dict]:
+    """Recover word streams using the existing uploader's fixed 120/20 layout."""
+    grouped = defaultdict(list)
+    for chunk in chunks:
+        grouped[chunk["document_id"]].append(chunk)
+    documents = []
+    for document_id, stored in sorted(grouped.items()):
+        stored.sort(key=lambda item: item["chunk_index"])
+        if [c["chunk_index"] for c in stored] != list(range(len(stored))):
+            raise EvaluationDatasetError("Project source chunks are incomplete or duplicated.")
+        # Use known overlap, not longest matching suffix: repeated text must survive.
+        words = stored[0]["text"].split()
+        for chunk in stored[1:]:
+            words.extend(chunk["text"].split()[20:])
+        text = " ".join(words)
+        if chunk_text(text, 120, 20) != [c["text"] for c in stored]:
+            raise EvaluationDatasetError("Project source chunks do not match the upload layout.")
+        documents.append({"document_id": document_id, "text": text})
+    return documents
+
+
+def _case_queries(cases, documents: list[dict], config: ExperimentConfig) -> list[dict]:
+    """Map verified evidence word spans into this configuration's chunk boundaries."""
+    texts = {d["document_id"]: normalized(d["text"]) for d in documents}
+    queries = []
+    for case in cases:
+        relevant = set()
+        for evidence in case.source_evidence:
+            text = texts[evidence["document_id"]]
+            words = list(re.finditer(r"\S+", text))
+            spans = quote_spans(evidence["quote"], text)
+            for start, end in spans:
+                stride = config.chunk_size - config.chunk_overlap
+                for index, chunk_start in enumerate(range(0, len(words), stride)):
+                    chunk_end = min(chunk_start + config.chunk_size, len(words))
+                    if words[chunk_start].start() < end and words[chunk_end - 1].end() > start:
+                        relevant.add(f"{evidence['document_id']}:{index}")
+                    if chunk_end == len(words):
+                        break
+            if not spans:
+                raise EvaluationDatasetError("Stored source evidence no longer matches project text.")
+        queries.append({"query": case.question, "relevant_ids": relevant})
+    return queries
+
+
+def run_project_evaluation(
+    db: Session, project_id: int, request: EvaluationRunRequest,
+) -> dict:
+    """Orchestrate Day 9 after the route has checked project ownership."""
+    ready_ids = {
+        document.id for document in get_project_documents(db, project_id)
+        if document.status == "ready"
+    }
+    chunks = [c for c in get_project_chunks(project_id) if c["document_id"] in ready_ids]
+    if not chunks:
+        raise ProjectCorpusEmptyError("Upload at least one ready document before evaluation.")
+    if {c["document_id"] for c in chunks} != ready_ids:
+        raise EvaluationDatasetError("Some ready documents are missing their source chunks.")
+    documents = _snapshot_documents(chunks)
+    configs = request.experiments or [
+        ExperimentConfig(name=strategy, strategy=strategy)
+        for strategy in ("semantic", "bm25", "hybrid")
+    ]
+    provider = OpenAIProvider()
+    try:
+        dataset, cases, reused = get_or_create_dataset(db, project_id, chunks, request, provider)
+        # Resolve all labels before spending tokens on answer generation.
+        queries_by_config = [_case_queries(cases, documents, config) for config in configs]
+        summaries = []
+        for config, queries in zip(configs, queries_by_config):
+            scratch = build_project_experiment_chunks(documents, config)
+            embeddings = [] if config.strategy == "bm25" else embed_texts([c["text"] for c in scratch])
+            evaluation = evaluate_project_retrieval(
+                scratch, embeddings, queries, config.top_k, config.strategy,
+                include_results=True,
+            )
+            retrieval_queries = evaluation["strategies"][config.strategy]["queries"]
+            answers = []
+            for case, retrieved in zip(cases, retrieval_queries):
+                result = evaluate_answer(case, retrieved["results"], config.top_k, provider)
+                result["retrieval_metrics"] = {
+                    key: retrieved[key] for key in (
+                        "hit_at_k", "precision_at_k", "recall_at_k", "reciprocal_rank"
+                    )
+                }
+                answers.append(result)
+            metrics = get_strategy_summary({"evaluation": evaluation}, config.strategy)
+            summaries.append({
+                "experiment_name": config.name,
+                "configuration": config.model_dump(exclude={"name"}),
+                "chunk_count": len(scratch),
+                "document_count": len(documents),
+                "metrics": metrics,
+                "score": metrics["mrr"],
+                "answer_metrics": {
+                    metric: round(sum(a["answer_metrics"][metric] for a in answers) / len(answers), 4)
+                    for metric in ("faithfulness", "relevance", "correctness", "hallucination")
+                },
+                "queries": answers,
+            })
+        comparison = _rank_experiments(summaries)
+        run = save_experiment_run(
+            db, project_id, comparison["best_experiment"],
+            evaluation_dataset_id=dataset.id,
+            generation_model=settings.generation_model,
+            evaluator_model=settings.evaluation_model,
+        )
+        return {
+            "project_id": project_id,
+            "evaluation_dataset_id": dataset.id,
+            "dataset_reused": reused,
+            "dataset_mode": dataset.mode,
+            "case_count": len(cases),
+            "experiment_run_id": run.id,
+            "best_experiment": comparison["best_experiment"],
+            "ranking": comparison["ranking"],
+        }
+    finally:
+        provider.close()

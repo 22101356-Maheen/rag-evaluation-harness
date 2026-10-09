@@ -218,6 +218,7 @@ def _evaluate_queries(
     top_k: int,
     strategies: tuple[str, ...],
     strategy_runner: Callable[[str, str, int], list[dict]],
+    include_results: bool = False,
 ) -> dict:
     if not evaluation_queries:
         raise EvaluationDatasetError(
@@ -235,11 +236,13 @@ def _evaluate_queries(
 
         for item in evaluation_queries:
             query = item["query"]
-            relevant_ids = resolve_relevant_chunk_ids(
-                chunks=chunks,
-                expected_evidence=item["expected_evidence"],
-                chunk_ids=chunk_ids,
-            )
+            relevant_ids = item.get("relevant_ids")
+            if relevant_ids is None:
+                relevant_ids = resolve_relevant_chunk_ids(
+                    chunks=chunks,
+                    expected_evidence=item["expected_evidence"],
+                    chunk_ids=chunk_ids,
+                )
 
             if not relevant_ids:
                 raise EvaluationDatasetError(
@@ -282,6 +285,8 @@ def _evaluate_queries(
                     "reciprocal_rank": round(rr, 4),
                 }
             )
+            if include_results:
+                query_results[-1]["results"] = results
 
         query_count = len(evaluation_queries)
         strategy_results[strategy] = {
@@ -337,6 +342,7 @@ def evaluate_project_retrieval(
     evaluation_queries: list[dict],
     top_k: int,
     strategy: str,
+    include_results: bool = False,
 ) -> dict:
     """Evaluate one configuration using explicit project-specific labels."""
 
@@ -356,6 +362,7 @@ def evaluate_project_retrieval(
         chunk_ids=chunk_ids,
         top_k=top_k,
         strategies=(strategy,),
+        include_results=include_results,
         strategy_runner=lambda selected, query, limit: (
             run_project_strategy(
                 strategy=selected,

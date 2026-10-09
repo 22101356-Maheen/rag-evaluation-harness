@@ -67,6 +67,16 @@ class ExperimentRun(Base):
         nullable=False,
     )
 
+    evaluation_dataset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("evaluation_datasets.id"), nullable=True
+    )
+    faithfulness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    correctness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hallucination: Mapped[float | None] = mapped_column(Float, nullable=True)
+    generation_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    evaluator_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # this stores when the experiment result was saved.
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

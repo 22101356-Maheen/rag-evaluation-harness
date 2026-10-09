@@ -4,6 +4,7 @@ from backend.app.api.routes.documents import router as documents_router
 from backend.app.api.routes.evaluation import router as evaluation_router
 from backend.app.api.routes.experiments import router as experiments_router
 from backend.app.api.routes.health import router as health_router
+from backend.app.api.routes.project_evaluations import router as project_evaluations_router
 from backend.app.api.routes.projects import router as projects_router
 from backend.app.api.routes.search import router as search_router
 from backend.app.core.config import settings
@@ -27,3 +28,4 @@ app.include_router(search_router)
 app.include_router(evaluation_router)
 app.include_router(experiments_router)
 app.include_router(projects_router)
+app.include_router(project_evaluations_router)
