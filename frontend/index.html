@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/src/assets/ragify-logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Upload your documents, compare retrieval strategies and answer quality, and get an explainable recommendation for your RAG setup." />
+    <meta name="theme-color" content="#F7F8FA" />
+    <title>Ragify</title>
+    <script>
+      // Apply the saved preference before paint to avoid a theme flash.
+      let theme = 'light'
+      try {
+        const saved = localStorage.getItem('ragify-theme')
+        if (saved === 'light' || saved === 'dark') theme = saved
+      } catch { /* Storage may be unavailable in restricted browsers. */ }
+      document.documentElement.dataset.theme = theme
+      document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#050A14' : '#F7F8FA'
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
