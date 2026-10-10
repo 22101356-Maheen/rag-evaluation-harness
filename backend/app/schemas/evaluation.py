@@ -98,7 +98,90 @@ class AnswerMetrics(StructuredModel):
     hallucination: float = Field(ge=0, le=1)
 
 
-class EvaluationRunResponse(BaseModel):
+FailureLabel = Literal[
+    "retrieval_failure",
+    "low_faithfulness",
+    "hallucination",
+    "low_correctness",
+    "low_relevance",
+    "good_result",
+]
+
+
+class QueryFailureAnalysis(StructuredModel):
+    evaluation_case_id: int
+    question: str
+    labels: list[FailureLabel] = Field(min_length=1)
+    primary_classification: FailureLabel
+    metrics: dict[str, float]
+    percentage_metrics: dict[str, str]
+    reasons: list[str]
+
+
+class ConfigurationFailureAnalysis(StructuredModel):
+    experiment_name: str
+    strategy: str
+    configuration: dict
+    recommendation_score: float = Field(ge=0, le=1)
+    metrics: dict[str, float]
+    percentage_metrics: dict[str, str]
+    passes_guardrails: bool
+    failed_guardrails: list[str]
+    failure_counts: dict[str, int]
+    failure_rates: dict[str, float]
+    per_query_classifications: list[QueryFailureAnalysis]
+
+
+class EvaluationReport(StructuredModel):
+    analysis_version: str
+    recommended_experiment: str
+    strategy: str
+    configuration: dict
+    recommendation_score: float = Field(ge=0, le=1)
+    percentage_metrics: dict[str, str]
+    passes_guardrails: bool
+    guardrail_status: str
+    why_it_won: str
+    key_strengths: list[str]
+    key_weaknesses: list[str]
+    failure_counts: dict[str, int]
+    failure_rates: dict[str, float]
+    per_query_classifications: list[QueryFailureAnalysis]
+    important_failed_queries: list[QueryFailureAnalysis] = Field(max_length=5)
+    practical_next_recommendation: str
+    configuration_analyses: list[ConfigurationFailureAnalysis]
+
+
+class EvaluationSummaryConfiguration(StructuredModel):
+    chunk_size: int
+    chunk_overlap: int
+    top_k: int
+    strategy: str
+
+
+class EvaluationSummaryMetrics(StructuredModel):
+    faithfulness: str
+    relevance: str
+    correctness: str
+    hallucination: str
+    mrr: str
+    recall_at_k: str
+
+
+class EvaluationRunSummary(StructuredModel):
+    recommended_strategy: str
+    recommended_experiment: str
+    recommendation_score: str
+    configuration: EvaluationSummaryConfiguration
+    key_metrics: EvaluationSummaryMetrics
+    guardrail_status: str
+    why_recommended: list[str]
+    strengths: list[str]
+    weaknesses: list[str]
+    next_step: str
+
+
+class EvaluationRunDetails(StructuredModel):
     project_id: int
     evaluation_dataset_id: int
     dataset_reused: bool
@@ -107,3 +190,9 @@ class EvaluationRunResponse(BaseModel):
     experiment_run_id: int
     best_experiment: dict
     ranking: list[dict]
+    report: EvaluationReport
+
+
+class EvaluationRunResponse(StructuredModel):
+    summary: EvaluationRunSummary
+    details: EvaluationRunDetails

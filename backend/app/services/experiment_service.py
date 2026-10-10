@@ -21,6 +21,10 @@ from backend.app.services.evaluation_service import (
     evaluate_project_retrieval,
     evaluate_retrieval,
 )
+from backend.app.services.evaluation_report_service import (
+    build_evaluation_report,
+    build_response_summary,
+)
 from backend.app.services.experiment_run_service import save_experiment_run
 from backend.app.services.synthetic_dataset_service import (
     get_or_create_dataset,
@@ -418,22 +422,28 @@ def run_project_evaluation(
                 },
                 "queries": answers,
             })
-        comparison = _rank_experiments(summaries)
+        recommended, ranking, report = build_evaluation_report(summaries)
         run = save_experiment_run(
-            db, project_id, comparison["best_experiment"],
+            db, project_id, recommended,
             evaluation_dataset_id=dataset.id,
             generation_model=settings.generation_model,
             evaluator_model=settings.evaluation_model,
+            analysis_report=report,
         )
-        return {
+        details = {
             "project_id": project_id,
             "evaluation_dataset_id": dataset.id,
             "dataset_reused": reused,
             "dataset_mode": dataset.mode,
             "case_count": len(cases),
             "experiment_run_id": run.id,
-            "best_experiment": comparison["best_experiment"],
-            "ranking": comparison["ranking"],
+            "best_experiment": recommended,
+            "ranking": ranking,
+            "report": report,
+        }
+        return {
+            "summary": build_response_summary(report),
+            "details": details,
         }
     finally:
         provider.close()

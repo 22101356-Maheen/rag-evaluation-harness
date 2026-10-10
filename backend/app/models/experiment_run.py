@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.db.postgres import Base
@@ -76,6 +76,7 @@ class ExperimentRun(Base):
     hallucination: Mapped[float | None] = mapped_column(Float, nullable=True)
     generation_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     evaluator_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    analysis_report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # this stores when the experiment result was saved.
     created_at: Mapped[datetime] = mapped_column(

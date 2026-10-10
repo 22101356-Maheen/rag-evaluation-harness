@@ -856,9 +856,39 @@ def test_endpoint_http_persistence_reuse_and_ownership(
                 == 200
             ), first.text
 
+            assert set(first.json()) == {
+                "summary",
+                "details",
+            }
+
+            assert set(first.json()["summary"]) == {
+                "recommended_strategy",
+                "recommended_experiment",
+                "recommendation_score",
+                "configuration",
+                "key_metrics",
+                "guardrail_status",
+                "why_recommended",
+                "strengths",
+                "weaknesses",
+                "next_step",
+            }
+
+            assert {
+                "project_id",
+                "evaluation_dataset_id",
+                "dataset_reused",
+                "dataset_mode",
+                "case_count",
+                "experiment_run_id",
+                "best_experiment",
+                "ranking",
+                "report",
+            } == set(first.json()["details"])
+
             assert (
                 len(
-                    first.json()["ranking"]
+                    first.json()["details"]["ranking"]
                 )
                 == 3
             )
@@ -874,7 +904,7 @@ def test_endpoint_http_persistence_reuse_and_ownership(
             ), second.text
 
             assert (
-                second.json()[
+                second.json()["details"][
                     "dataset_reused"
                 ]
             )
@@ -918,14 +948,14 @@ def test_endpoint_http_persistence_reuse_and_ownership(
 
     run = db.get(
         ExperimentRun,
-        first.json()[
+        first.json()["details"][
             "experiment_run_id"
         ],
     )
 
     assert (
         run.evaluation_dataset_id
-        == first.json()[
+        == first.json()["details"][
             "evaluation_dataset_id"
         ]
     )

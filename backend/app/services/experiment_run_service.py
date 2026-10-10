@@ -14,6 +14,7 @@ def save_experiment_run(
     evaluation_dataset_id: int | None = None,
     generation_model: str | None = None,
     evaluator_model: str | None = None,
+    analysis_report: dict | None = None,
 ) -> ExperimentRun:
     """
     Save the winning experiment result for a project.
@@ -37,6 +38,7 @@ def save_experiment_run(
         evaluation_dataset_id=evaluation_dataset_id,
         generation_model=generation_model,
         evaluator_model=evaluator_model,
+        analysis_report=analysis_report,
         faithfulness=answer_metrics.get("faithfulness"),
         relevance=answer_metrics.get("relevance"),
         correctness=answer_metrics.get("correctness"),
